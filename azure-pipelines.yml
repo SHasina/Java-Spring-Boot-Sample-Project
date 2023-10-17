@@ -1,0 +1,31 @@
+- stage: Deploy
+  displayName: Deploy stage
+  dependsOn: Build
+  condition: succeeded()
+variables:
+    ${{if eq(variables['Build.SourceBranchName'], 'devbranch')}}:
+      template: vars/dev-variable.yaml
+    ${{if eq(variables['Build.SourceBranchName'], 'intbranch')}}:
+      template: vars/int-variable.yaml
+    ${{else}}:
+      template: vars/prod-variable.yaml
+        
+    jobs:
+    - deployment: DeployLinuxWebApp
+      displayName: Deploy Linux Web App
+      environment: $(parameters.environment)
+      pool: 
+       vmImage: 'ubuntu-latest'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+            - task: AzureWebApp@1
+              displayName: 'Azure Web App Deploy'
+              inputs:
+                azureSubscription: ${{variables.azureSubscription}}
+                resourceGroupName: ${{variables.resourceGroup}}
+                location: ${{variables.location}}
+                appType: webAppLinux
+                appName: ${{variable.webappName}}
+                package: '$(Pipeline.Workspace)/drop/**/target/*.?(war|jar)'
