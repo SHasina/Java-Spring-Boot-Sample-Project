@@ -1,7 +1,69 @@
+# Maven package Java project Web App to Linux on Azure
+# Build your Java project and deploy it to Azure as a Linux web app
+# Add steps that analyze code, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/java
+
+parameters:
+  - name: Environment
+    displayName: Environment
+    type: string
+    default: DEV
+    values:
+    - DEV
+    - INT
+    - PROD
+
+  - name: ProjectName
+    displayName: ProjectName
+    type: string
+    default: 4D-Workspace
+
+  - name: variableGroup
+    type: string
+    values:
+      - DevGroup
+      - IntGroup
+      - ProdGroup    
+
+
+trigger:
+  branches: 
+    include:
+      - devbranch/*
+      - intbranch/*
+      - prodbranch/*  
+
+
+stages:
+- stage: Build
+  displayName: Build stage
+  jobs:
+  - job: MavenPackageAndPublishArtifacts
+    displayName: Maven Package and Publish Artifacts
+    pool:
+      vmImage: 'ubuntu-latest'  #Provide your build agent name, if you are using Self Host agent
+
+    steps:
+    - task: Maven@3
+      displayName: 'Maven Package'
+      inputs:
+        mavenPomFile: '$(System.DefaultWorkingDirectory)/folder_path/pom.xml' #Provide the 'pom.xml' filepath in github repo
+
+    - task: CopyFiles@2
+      displayName: 'Copy Files to artifact staging directory'
+      inputs:
+        SourceFolder: '$(System.DefaultWorkingDirectory)'
+        Contents: '**/target/*.?(war|jar)'
+        TargetFolder: $(Build.ArtifactStagingDirectory)
+
+    - upload: $(Build.ArtifactStagingDirectory)
+      artifact: drop   #Artifacts will be stored in azure pipelines
+      
 - stage: Deploy
   displayName: Deploy stage
   dependsOn: Build
   condition: succeeded()
+  
 variables:
     ${{if eq(variables['Build.SourceBranchName'], 'devbranch')}}:
       template: vars/dev-variable.yaml
